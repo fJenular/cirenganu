@@ -24,7 +24,7 @@ import {
 import confetti from "canvas-confetti";
 import DesktopPhoneFrame from "@/components/DesktopPhoneFrame";
 import { CartItem, OrderCustomerInfo, OrderRecord, StoreSettings } from "@/lib/types";
-import { formatRupiah, buildWhatsAppMessage, createWhatsAppUrl } from "@/lib/whatsapp";
+import { formatRupiah, buildWhatsAppMessage, createWhatsAppUrl, WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PROMO_CODES, DEFAULT_STORE_SETTINGS } from "@/lib/initialData";
 import { createOrder, getStoreSettings } from "@/lib/supabase";
 
@@ -186,8 +186,7 @@ export default function CheckoutPage() {
         appliedPromo?.code
       );
 
-      const targetWaNumber = storeSettings.whatsapp_number || "6281234567890";
-      const waUrl = createWhatsAppUrl(targetWaNumber, waMessage);
+      const waUrl = createWhatsAppUrl(WHATSAPP_NUMBER, waMessage);
 
       // Clear local storage cart
       try {
