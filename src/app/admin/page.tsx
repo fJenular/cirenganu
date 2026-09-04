@@ -413,12 +413,12 @@ export default function AdminPage() {
           {/* Logo & Header */}
           <div className="text-center relative z-10 space-y-2 mb-6">
             <div className="relative w-16 h-16 mx-auto rounded-2xl overflow-hidden shadow-xl border-2 border-red-500/80 mb-3">
-              <Image src="/logo.jpg" alt="Logo" fill className="object-cover" />
+              <Image src="/logo.jpg" alt="Logo" fill sizes="64px" className="object-cover" />
             </div>
             <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-800/60 px-3 py-1 rounded-full">
               <Shield className="w-3.5 h-3.5" /> Portal Khusus Admin
             </span>
-            <h1 className="text-xl font-black text-white">Anu CiRENG Management</h1>
+            <h1 className="text-xl font-black text-white">Cireng Anu Management</h1>
             <p className="text-xs text-neutral-400 max-w-xs mx-auto">
               Masukkan PIN Admin untuk mengelola data menu, pesanan, dan ekspor laporan penjualan.
             </p>
@@ -499,7 +499,7 @@ export default function AdminPage() {
           {/* Brand & Store status badge */}
           <div className="flex items-center gap-3">
             <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-red-500/80 shrink-0">
-              <Image src="/logo.jpg" alt="Logo" fill className="object-cover" />
+              <Image src="/logo.jpg" alt="Logo" fill sizes="36px" className="object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -1368,7 +1368,7 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-xs">
             <div className="text-center pb-3 border-b border-dashed border-neutral-300">
-              <h3 className="font-black text-lg text-neutral-900">Anu CiRENG</h3>
+              <h3 className="font-black text-lg text-neutral-900">Cireng Anu</h3>
               <p className="text-[11px] text-neutral-400">Struk Resmi Pemesanan #{selectedOrderForReceipt.id}</p>
               <p className="text-[11px] text-neutral-400">
                 {new Date(selectedOrderForReceipt.created_at).toLocaleString("id-ID")}

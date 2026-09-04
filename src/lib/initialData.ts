@@ -24,7 +24,7 @@ export const INITIAL_MENUS: MenuItem[] = [
     id: "cimol-isi-keju",
     name: "CIMOL ISI KEJU",
     category: "cireng-cimol",
-    description: "Cimol goreng isi keju yang lumer di mulut saat digigit, ditaburi bumbu pedas dan gurih khas Anu Cireng.",
+    description: "Cimol goreng isi keju yang lumer di mulut saat digigit, ditaburi bumbu pedas dan gurih khas Cireng Anu.",
     unit_info: "Porsi Gurih Nagih",
     price: 10000,
     image_url: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop&q=80",
@@ -157,10 +157,10 @@ export const INITIAL_MENUS: MenuItem[] = [
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   whatsapp_number: "6281234567890",
-  store_name: "Anu Cireng",
+  store_name: "Cireng Anu",
   is_open: true,
   opening_hours: "10:00 - 21:30 WIB",
-  store_address: "Pusat Jajanan & Cemilan Gurih Anu Cireng",
+  store_address: "Pusat Jajanan & Cemilan Gurih Cireng Anu",
   delivery_fee_default: 5000
 };
 

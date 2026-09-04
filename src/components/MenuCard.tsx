@@ -9,6 +9,7 @@ import { formatRupiah } from "@/lib/whatsapp";
 interface Props {
   item: MenuItem;
   cartQuantity?: number;
+  index?: number;
   onSelect: (item: MenuItem) => void;
   onQuickAdd: (item: MenuItem) => void;
   onUpdateQuantity?: (delta: number) => void;
@@ -17,6 +18,7 @@ interface Props {
 export default function MenuCard({
   item,
   cartQuantity = 0,
+  index = 0,
   onSelect,
   onQuickAdd,
   onUpdateQuantity,
@@ -29,10 +31,11 @@ export default function MenuCard({
 
   return (
     <div
-      className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm border transition-all duration-200 ${
+      style={{ animationDelay: `${(index % 8) * 0.06}s` }}
+      className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm border transition-all duration-300 animate-fade-in-up ${
         isOutOfStock
           ? "border-neutral-200 opacity-70"
-          : "border-neutral-200/70 hover:border-orange-200 hover:shadow-md hover:-translate-y-0.5"
+          : "border-neutral-200/70 hover:border-orange-300 hover:shadow-md hover:-translate-y-1 active:scale-[0.99]"
       }`}
     >
       {/* === IMAGE AREA === */}
@@ -118,21 +121,24 @@ export default function MenuCard({
               </span>
             ) : cartQuantity > 0 ? (
               /* Capsule Stepper matching image: [ -  qty  (+) ] */
-              <div className="flex items-center gap-1.5 bg-neutral-100/90 hover:bg-neutral-100 rounded-full pl-2 pr-0.5 py-0.5 shadow-2xs border border-neutral-200/60 transition-colors">
+              <div className="flex items-center gap-1.5 bg-neutral-100/90 hover:bg-neutral-100 rounded-full pl-2 pr-0.5 py-0.5 shadow-2xs border border-neutral-200/60 transition-colors animate-fade-in-up">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onUpdateQuantity) onUpdateQuantity(-1);
                   }}
-                  className="text-neutral-700 hover:text-red-600 active:scale-90 p-0.5 transition-colors cursor-pointer flex items-center justify-center"
+                  className="text-neutral-700 hover:text-red-600 active:scale-75 p-0.5 transition-all cursor-pointer flex items-center justify-center"
                   title="Kurang 1"
                   aria-label="Kurang 1"
                 >
                   <Minus className="w-3 h-3 stroke-[2.5]" />
                 </button>
 
-                <span className="text-xs font-black text-neutral-900 min-w-[14px] text-center tabular-nums select-none">
+                <span
+                  key={cartQuantity}
+                  className="text-xs font-black text-neutral-900 min-w-[14px] text-center tabular-nums select-none inline-block animate-pop-in"
+                >
                   {cartQuantity}
                 </span>
 
@@ -143,7 +149,7 @@ export default function MenuCard({
                     if (onUpdateQuantity) onUpdateQuantity(1);
                     else onQuickAdd(item);
                   }}
-                  className="w-5 h-5 rounded-full bg-[#FF5722] hover:bg-[#F4511E] text-white flex items-center justify-center active:scale-90 transition-transform shadow-xs cursor-pointer"
+                  className="w-5 h-5 rounded-full bg-[#FF5722] hover:bg-[#F4511E] text-white flex items-center justify-center active:scale-75 transition-all shadow-xs cursor-pointer"
                   title="Tambah 1"
                   aria-label="Tambah 1"
                 >
@@ -158,7 +164,7 @@ export default function MenuCard({
                   e.stopPropagation();
                   onQuickAdd(item);
                 }}
-                className="px-3.5 py-1 bg-[#FF5722] hover:bg-[#F4511E] active:scale-95 text-white text-xs font-extrabold rounded-full shadow-xs transition-all cursor-pointer flex items-center justify-center"
+                className="px-3.5 py-1 bg-[#FF5722] hover:bg-[#F4511E] active:scale-90 hover:shadow-md hover:shadow-orange-500/20 text-white text-xs font-extrabold rounded-full shadow-xs transition-all duration-200 cursor-pointer flex items-center justify-center"
               >
                 <span>Pesan</span>
               </button>

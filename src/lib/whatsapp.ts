@@ -24,26 +24,26 @@ export function buildWhatsAppMessage(
   });
 
   const orderTypeLabels: { [key: string]: string } = {
-    delivery: "🛵 Pengiriman Kurir (Delivery Batch PO)",
-    takeaway: "🛍️ Ambil Sendiri (Takeaway Batch PO)",
+    delivery: "🛵 Pesan Antar (Delivery ke Alamat)",
+    takeaway: "🛍️ Ambil Sendiri (Takeaway / Pickup)",
     dine_in: "🍽️ Makan di Tempat (Dine In)"
   };
 
   const paymentLabels: { [key: string]: string } = {
     qris: "📱 QRIS (Semua E-Wallet / M-Banking)",
     transfer: "🏦 Transfer Bank",
-    cash: "💵 Bayar Tunai (Cash Saat Pengambilan)"
+    cash: "💵 Bayar Tunai (Cash / COD)"
   };
 
-  let msg = `Halo *Anu CiRENG!* 👋✨\n`;
-  msg += `Saya mau reservasi *PRE-ORDER (PO) BATCH* camilan gurih lezat:\n\n`;
+  let msg = `Halo *Cireng Anu!* 👋✨\n`;
+  msg += `Saya mau pesan makanan lezat dari *Cireng Anu*:\n\n`;
 
-  msg += `📋 *ID PRE-ORDER: #${orderId}*\n`;
+  msg += `📋 *NO. PESANAN: #${orderId}*\n`;
   msg += `🕒 Waktu Pemesanan: ${dateStr}\n`;
-  msg += `⚡ *Status: Reservasi Pre-Order (PO Fresh)*\n`;
+  msg += `⚡ *Status: Pesanan Langsung (Order Online)*\n`;
   msg += `-------------------------\n\n`;
 
-  msg += `🍟 *RINCIAN MENU PRE-ORDER:*\n`;
+  msg += `🍟 *RINCIAN MENU PESANAN:*\n`;
 
   items.forEach((item, index) => {
     msg += `*${index + 1}. ${item.name}* (x${item.quantity})\n`;
@@ -73,7 +73,7 @@ export function buildWhatsAppMessage(
   msg += `💰 *TOTAL PEMBAYARAN: ${formatRupiah(totalAmount)}*\n`;
   msg += `-------------------------\n\n`;
 
-  msg += `👤 *DATA PEMESAN PRE-ORDER:*\n`;
+  msg += `👤 *DATA PEMESAN:*\n`;
   msg += `• *Nama Pelanggan:* ${customer.name}\n`;
   msg += `• *No. WhatsApp:* ${customer.phone}\n`;
   msg += `• *Metode Penerimaan:* ${orderTypeLabels[customer.orderType] || customer.orderType}\n`;
@@ -85,10 +85,10 @@ export function buildWhatsAppMessage(
   msg += `• *Metode Bayar:* ${paymentLabels[customer.paymentMethod] || customer.paymentMethod}\n`;
 
   if (customer.notes) {
-    msg += `• *Catatan Tambahan:* _"${customer.notes}"_\n`;
+    msg += `• *Catatan Pesanan:* _"${customer.notes}"_\n`;
   }
 
-  msg += `\nMohon konfirmasi slot kuota PO dan estimasi jam siapnya ya min. Terima kasih! 🙏✨`;
+  msg += `\nMohon konfirmasi pesanan dan estimasi waktu penyiapan/pengantarannya ya min. Terima kasih! 🙏✨`;
 
   return msg;
 }

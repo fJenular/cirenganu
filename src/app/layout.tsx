@@ -9,10 +9,12 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Anu CiRENG - Juaranya Cireng & Cemilan Gurih",
+  title: "Cireng Anu - Juaranya Cireng & Cemilan Gurih",
   description: "Aplikasi pemesanan cireng isi, cimol kuah keju lumer, pempek, cheese roll, dan dimsum creamy lezat langsung ke WhatsApp.",
   icons: {
-    icon: "/logo.jpg"
+    icon: "/logo.jpg",
+    apple: "/apple-touch-icon.png",
+    shortcut: "/logo.jpg"
   }
 };
 

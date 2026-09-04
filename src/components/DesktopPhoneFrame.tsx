@@ -20,27 +20,27 @@ export default function DesktopPhoneFrame({ children }: Props) {
         <div className="absolute top-12 left-16 max-w-sm text-neutral-800">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-sm border border-neutral-200 relative bg-white">
-              <Image src="/logo.jpg" alt="Anu Cireng Logo" fill className="object-cover" />
+              <Image src="/logo.jpg" alt="Cireng Anu Logo" fill sizes="48px" className="object-cover" />
             </div>
             <div>
               <h1 className="font-black text-2xl tracking-tight text-neutral-900 flex items-center gap-1">
-                Anu <span className="text-red-600">CiRENG</span>
+                Cireng <span className="text-red-600">Anu</span>
               </h1>
-              <p className="text-xs text-neutral-500 font-medium">Pre-Order Fresh Daily</p>
+              <p className="text-xs text-neutral-500 font-medium">Pesan Makanan Online & Fresh</p>
             </div>
           </div>
           <p className="text-xs text-neutral-500 leading-relaxed mt-3">
-            Aplikasi pemesanan camilan khas Bandung. Sistem Pre-Order (PO) dengan kuota porsi harian terbatas, langsung terhubung ke WhatsApp.
+            Aplikasi pemesanan camilan lezat khas Bandung ala GoFood &amp; GrabFood, langsung terhubung rapi ke WhatsApp toko.
           </p>
 
           <div className="mt-6 flex flex-col gap-2.5 text-xs text-neutral-600">
             <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-neutral-200/80 shadow-2xs">
               <Sparkles className="w-4 h-4 text-red-600 shrink-0" />
-              <span>Dibuat Fresh Setiap Hari Sesuai Pesanan</span>
+              <span>Dibuat Fresh &amp; Hangat Sesuai Pesanan</span>
             </div>
             <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-neutral-200/80 shadow-2xs">
               <PhoneCall className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Format Reservasi WhatsApp Otomatis</span>
+              <span>Format Pesanan WhatsApp Otomatis</span>
             </div>
             <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-neutral-200/80 shadow-2xs">
               <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />

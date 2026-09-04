@@ -13,6 +13,11 @@ interface Props {
 }
 
 export default function ProductDetailModal({ item, onClose, onAddToCart }: Props) {
+  const [activeItem, setActiveItem] = useState<MenuItem | null>(item);
+  const [isRendered, setIsRendered] = useState(!!item);
+  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<string>("");
   const [selectedSpicyLevel, setSelectedSpicyLevel] = useState<string>("");
@@ -23,6 +28,9 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
 
   useEffect(() => {
     if (item) {
+      setActiveItem(item);
+      setIsRendered(true);
+      setIsClosing(false);
       setQuantity(1);
       setItemNotes("");
       setIsAdding(false);
@@ -39,13 +47,37 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
       }
 
       setSelectedToppings([]);
+      const timer = setTimeout(() => setIsAnimatingIn(true), 20);
+      return () => clearTimeout(timer);
+    } else if (isRendered && !isClosing) {
+      setIsClosing(true);
+      setIsAnimatingIn(false);
+      const timer = setTimeout(() => {
+        setIsRendered(false);
+        setIsClosing(false);
+        setActiveItem(null);
+      }, 260);
+      return () => clearTimeout(timer);
     }
   }, [item]);
 
-  if (!item) return null;
+  const handleClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setIsAnimatingIn(false);
+    setTimeout(() => {
+      onClose();
+      setIsRendered(false);
+      setIsClosing(false);
+      setActiveItem(null);
+    }, 260);
+  };
 
+  if (!isRendered || !activeItem) return null;
+
+  const currentItem = activeItem;
   const toppingsPriceTotal = selectedToppings.reduce((acc, curr) => acc + curr.price, 0);
-  const singleUnitPrice = item.price + toppingsPriceTotal;
+  const singleUnitPrice = currentItem.price + toppingsPriceTotal;
   const totalPrice = singleUnitPrice * quantity;
 
   const handleToggleTopping = (topping: { name: string; price: number }) => {
@@ -74,12 +106,12 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
     ].filter(Boolean).join("_");
 
     const cartItem: CartItem = {
-      id: `${item.id}-${optionsHash || "default"}`,
-      menuId: item.id,
-      name: item.name,
+      id: `${currentItem.id}-${optionsHash || "default"}`,
+      menuId: currentItem.id,
+      name: currentItem.name,
       price: singleUnitPrice,
-      unit_info: item.unit_info,
-      image_url: item.image_url,
+      unit_info: currentItem.unit_info,
+      image_url: currentItem.image_url,
       quantity: quantity,
       options: options,
       itemTotal: totalPrice,
@@ -88,20 +120,31 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
 
     setTimeout(() => {
       onAddToCart(cartItem);
-      onClose();
+      handleClose();
     }, 200);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-2xs animate-in fade-in duration-200">
-      <div className="w-full md:max-w-md bg-white rounded-t-[32px] md:rounded-[32px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+    <div
+      className={`fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-260 ease-out ${
+        isAnimatingIn && !isClosing ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      {/* Backdrop click to close */}
+      <div className="absolute inset-0" onClick={handleClose} />
+
+      <div
+        className={`relative w-full md:max-w-md bg-white rounded-t-[32px] md:rounded-[32px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-neutral-200/80 z-10 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isAnimatingIn && !isClosing ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+        }`}
+      >
         
         {/* Header Bar */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2.5 z-10 bg-white border-b border-neutral-100">
           <button
             type="button"
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-xs font-bold text-neutral-700 transition-colors cursor-pointer"
+            onClick={handleClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-xs font-bold text-neutral-700 transition-all cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Kembali</span>
@@ -109,7 +152,7 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
 
           <span className="text-xs font-bold text-neutral-800 flex items-center gap-1">
             <Flame className="w-3.5 h-3.5 text-red-600" />
-            <span>Pre-Order Menu</span>
+            <span>Menu Spesial</span>
           </span>
 
           <button
@@ -130,19 +173,19 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
           {/* Main Hero Product Image */}
           <div className="relative w-full h-52 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200/70 shadow-2xs flex items-center justify-center">
             <Image
-              src={item.image_url || "/logo.jpg"}
-              alt={item.name}
+              src={currentItem.image_url || "/logo.jpg"}
+              alt={currentItem.name}
               fill
               className="object-cover"
               priority
             />
-            {item.badge && (
+            {currentItem.badge && (
               <span className="absolute top-3 left-3 bg-red-600 text-white text-[11px] font-bold px-3 py-0.5 rounded-md shadow-xs">
-                {item.badge}
+                {currentItem.badge}
               </span>
             )}
             <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-xs text-neutral-900 text-[10px] font-bold px-2.5 py-1 rounded-md border border-neutral-200 shadow-2xs">
-              Slot PO Terbatas
+              Fresh &amp; Hangat
             </div>
           </div>
 
@@ -151,50 +194,50 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="text-xl font-bold text-neutral-900 tracking-tight leading-tight">
-                  {item.name}
+                  {currentItem.name}
                 </h2>
                 <p className="text-xs font-semibold text-neutral-500 mt-0.5">
-                  {item.unit_info || "Porsi Spesial"}
+                  {currentItem.unit_info || "Porsi Spesial"}
                 </p>
               </div>
 
               <div className="text-right">
                 <div className="flex items-center gap-1 text-xs font-bold text-amber-500 justify-end">
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  <span>{item.rating || 4.9}</span>
+                  <span>{currentItem.rating || 4.9}</span>
                 </div>
                 <span className="text-[10px] text-neutral-400 font-medium">
-                  ({item.reviews_count || 120} Ulasan)
+                  ({currentItem.reviews_count || 120} Ulasan)
                 </span>
               </div>
             </div>
 
-            {/* PO Fresh Notice Banner */}
+            {/* Fresh Cooking Notice Banner */}
             <div className="mt-2.5 bg-neutral-50 p-2.5 rounded-xl border border-neutral-200/80 flex items-center gap-2 text-[11px] text-neutral-700">
               <Clock className="w-4 h-4 text-red-600 shrink-0" />
               <p className="leading-tight">
-                <strong>Pre-Order Fresh:</strong> Dibuat harian sesuai kuota pesanan batch.
+                <strong>Fresh &amp; Hangat:</strong> Dimasak langsung saat dipesan agar renyah &amp; lezat maksimal.
               </p>
             </div>
 
-            {item.description && (
+            {currentItem.description && (
               <div className="mt-3 bg-neutral-50/70 p-3 rounded-xl border border-neutral-100">
                 <p className="text-xs text-neutral-600 leading-relaxed">
-                  {item.description}
+                  {currentItem.description}
                 </p>
               </div>
             )}
           </div>
 
           {/* Varian Selection */}
-          {item.variant_options && item.variant_options.length > 0 && (
+          {currentItem.variant_options && currentItem.variant_options.length > 0 && (
             <div className="space-y-2">
               <label className="text-xs font-bold text-neutral-800 flex items-center justify-between">
-                <span>{item.variant_title || "Pilihan Isian / Varian"}</span>
+                <span>{currentItem.variant_title || "Pilihan Isian / Varian"}</span>
                 <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded-md font-bold">Wajib</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {item.variant_options.map((opt) => {
+                {currentItem.variant_options.map((opt) => {
                   const isSelected = selectedVariant === opt;
                   return (
                     <button
@@ -223,13 +266,13 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
           )}
 
           {/* Spicy Levels */}
-          {item.spicy_levels && item.spicy_levels.length > 0 && (
+          {currentItem.spicy_levels && currentItem.spicy_levels.length > 0 && (
             <div className="space-y-2">
               <label className="text-xs font-bold text-neutral-800">
                 Pilih Level Kepedasan:
               </label>
               <div className="flex flex-wrap gap-2">
-                {item.spicy_levels.map((lvl) => {
+                {currentItem.spicy_levels.map((lvl) => {
                   const isSelected = selectedSpicyLevel === lvl;
                   return (
                     <button
@@ -251,14 +294,14 @@ export default function ProductDetailModal({ item, onClose, onAddToCart }: Props
           )}
 
           {/* Extra Toppings */}
-          {item.extra_toppings && item.extra_toppings.length > 0 && (
+          {currentItem.extra_toppings && currentItem.extra_toppings.length > 0 && (
             <div className="space-y-2">
               <label className="text-xs font-bold text-neutral-800 flex items-center justify-between">
                 <span>Tambah Ekstra Topping:</span>
                 <span className="text-[10px] text-neutral-400 font-semibold">Opsional</span>
               </label>
               <div className="space-y-1.5">
-                {item.extra_toppings.map((top) => {
+                {currentItem.extra_toppings.map((top) => {
                   const isChecked = selectedToppings.some((t) => t.name === top.name);
                   return (
                     <div

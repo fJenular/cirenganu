@@ -33,9 +33,10 @@ export default function OnboardingHero({ onScrollToMenu }: Props) {
           <div className="relative w-20 h-20 shrink-0 rounded-2xl overflow-hidden bg-white p-1 shadow-lg border-2 border-amber-300">
             <Image
               src="/logo.jpg"
-              alt="Anu Cireng Mascot"
+              alt="Cireng Anu Mascot"
               fill
               priority
+              sizes="80px"
               className="object-cover rounded-xl"
             />
           </div>
@@ -46,7 +47,7 @@ export default function OnboardingHero({ onScrollToMenu }: Props) {
               <span>Cemilan Viral Mantap</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight leading-none text-white drop-shadow-sm">
-              Anu <span className="text-amber-300">CiRENG</span>
+              Cireng <span className="text-amber-300">Anu</span>
             </h2>
             <p className="text-xs text-white/90 font-medium mt-1 leading-snug">
               Sensasi cireng crispy, cimol kuah keju lumer, dan dimsum premium favorit semua kalangan!

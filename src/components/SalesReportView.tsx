@@ -152,7 +152,7 @@ export default function SalesReportView({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Laporan_Penjualan_Anu_Cireng_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Laporan_Penjualan_Cireng_Anu_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -192,7 +192,7 @@ export default function SalesReportView({
                 <span>Dashboard Admin & Laporan</span>
                 <span className="text-[10px] bg-red-600 text-white px-2 py-0.2 rounded-full">Supabase</span>
               </h2>
-              <p className="text-[10px] text-neutral-400">Anu Cireng Management Hub</p>
+              <p className="text-[10px] text-neutral-400">Cireng Anu Management Hub</p>
             </div>
           </div>
 
@@ -594,7 +594,7 @@ export default function SalesReportView({
           <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-3 text-xs">
               <div className="text-center pb-2 border-b border-dashed border-neutral-300">
-                <h3 className="font-black text-base text-neutral-900">Anu CiRENG</h3>
+                <h3 className="font-black text-base text-neutral-900">Cireng Anu</h3>
                 <p className="text-[10px] text-neutral-400">Struk Pemesanan #{selectedOrderForReceipt.id}</p>
                 <p className="text-[10px] text-neutral-400">
                   {new Date(selectedOrderForReceipt.created_at).toLocaleString("id-ID")}

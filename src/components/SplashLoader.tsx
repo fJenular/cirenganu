@@ -50,9 +50,10 @@ export default function SplashLoader({ onFinish, minDuration = 1600 }: Props) {
           <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 bg-white shadow-lg p-0.5 animate-pulse">
             <Image
               src="/logo.jpg"
-              alt="Anu CiRENG Logo"
+              alt="Cireng Anu Logo"
               fill
               priority
+              sizes="80px"
               className="object-cover rounded-full"
             />
           </div>
@@ -61,10 +62,10 @@ export default function SplashLoader({ onFinish, minDuration = 1600 }: Props) {
         {/* Brand Name & Tagline */}
         <div className="space-y-0.5 mb-5">
           <h1 className="text-xl font-black text-neutral-900">
-            Anu <span className="text-red-600">CiRENG</span>
+            Cireng <span className="text-red-600">Anu</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium">
-            Pre-Order Fresh Daily
+            Pesan Online Fresh &amp; Hangat
           </p>
         </div>
 

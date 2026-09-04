@@ -35,22 +35,68 @@ export default function CartDrawer({
 }: Props) {
   const router = useRouter();
 
-  if (!isOpen) return null;
+  const [isRendered, setIsRendered] = React.useState(isOpen);
+  const [isAnimatingIn, setIsAnimatingIn] = React.useState(false);
+  const [isClosing, setIsClosing] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setIsRendered(true);
+      setIsClosing(false);
+      const timer = setTimeout(() => {
+        setIsAnimatingIn(true);
+      }, 20);
+      return () => clearTimeout(timer);
+    } else if (isRendered && !isClosing) {
+      setIsClosing(true);
+      setIsAnimatingIn(false);
+      const timer = setTimeout(() => {
+        setIsRendered(false);
+        setIsClosing(false);
+      }, 260);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  const handleCloseWithAnimation = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setIsAnimatingIn(false);
+    setTimeout(() => {
+      onClose();
+      setIsRendered(false);
+      setIsClosing(false);
+    }, 260);
+  };
+
+  if (!isRendered) return null;
 
   const totalItemsCount = items.reduce((acc, curr) => acc + curr.quantity, 0);
   const totalPrice = items.reduce((acc, curr) => acc + curr.itemTotal, 0);
 
   const handleProceedToCheckout = () => {
-    onClose();
-    router.push("/checkout");
+    setIsClosing(true);
+    setIsAnimatingIn(false);
+    setTimeout(() => {
+      onClose();
+      router.push("/checkout");
+    }, 200);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div
+      className={`fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-260 ${
+        isAnimatingIn && !isClosing ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
       {/* Backdrop click to close */}
-      <div className="absolute inset-0" onClick={onClose} />
+      <div className="absolute inset-0" onClick={handleCloseWithAnimation} />
 
-      <div className="relative w-full md:max-w-md bg-white rounded-t-[32px] md:rounded-[32px] max-h-[85vh] h-auto flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 border border-neutral-200/80 z-10">
+      <div
+        className={`relative w-full md:max-w-md bg-white rounded-t-[32px] md:rounded-[32px] max-h-[85vh] h-auto flex flex-col shadow-2xl overflow-hidden border border-neutral-200/80 z-10 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isAnimatingIn && !isClosing ? "translate-y-0 opacity-100 scale-100" : "translate-y-full md:translate-y-8 opacity-0 scale-95"
+        }`}
+      >
         
         {/* Pull Handle for Mobile */}
         <div className="w-full flex justify-center pt-3 pb-1">
@@ -86,7 +132,7 @@ export default function CartDrawer({
             )}
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseWithAnimation}
               className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition-colors cursor-pointer"
               aria-label="Tutup"
             >
@@ -110,7 +156,7 @@ export default function CartDrawer({
               </div>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleCloseWithAnimation}
                 className="px-5 py-2 rounded-xl bg-neutral-900 text-white font-bold text-xs hover:bg-neutral-800 transition-colors cursor-pointer"
               >
                 Pilih Menu

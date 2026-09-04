@@ -74,6 +74,12 @@ export default function Home() {
       if (savedCart) {
         setCartItems(JSON.parse(savedCart));
       }
+      const hasOnboarded = localStorage.getItem("cireng_anu_has_onboarded");
+      const searchParams = new URLSearchParams(window.location.search);
+      if (hasOnboarded === "true" || searchParams.get("screen") === "order") {
+        setCurrentScreen("order");
+        setShowSplash(false);
+      }
     } catch {}
   }, []);
 
@@ -123,7 +129,14 @@ export default function Home() {
 
       <DesktopPhoneFrame>
         {currentScreen === "welcome" ? (
-          <WelcomeScreen onStartOrder={() => setCurrentScreen("order")} />
+          <WelcomeScreen
+            onStartOrder={() => {
+              try {
+                localStorage.setItem("cireng_anu_has_onboarded", "true");
+              } catch {}
+              setCurrentScreen("order");
+            }}
+          />
         ) : (
           <div className="min-h-full flex flex-col bg-[#F7F7F8] pb-28 animate-in fade-in duration-300">
 
@@ -158,7 +171,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {displayedMenus.map((item) => {
+                  {displayedMenus.map((item, idx) => {
                     const itemCartQty = cartItems
                       .filter((c) => c.menuId === item.id)
                       .reduce((sum, curr) => sum + curr.quantity, 0);
@@ -167,6 +180,7 @@ export default function Home() {
                       <MenuCard
                         key={item.id}
                         item={item}
+                        index={idx}
                         cartQuantity={itemCartQty}
                         onSelect={(m) => setSelectedMenuItem(m)}
                         onQuickAdd={(m) => {
@@ -203,12 +217,12 @@ export default function Home() {
             <div className="mt-4 px-5 py-6 text-center text-neutral-400 text-[11px] space-y-2 border-t border-neutral-100 bg-white">
               <div className="flex items-center justify-center gap-2">
                 <div className="relative w-5 h-5 rounded-full overflow-hidden border border-red-500">
-                  <Image src="/logo.jpg" alt="Logo" fill className="object-cover" />
+                  <Image src="/logo.jpg" alt="Logo" fill sizes="20px" className="object-cover" />
                 </div>
-                <span className="font-bold text-neutral-800">Anu CiRENG Pre-Order System</span>
+                <span className="font-bold text-neutral-800">Cireng Anu - Pesan Makanan Online</span>
               </div>
               <p className="max-w-xs mx-auto text-[10px] text-neutral-400 leading-relaxed">
-                Camilan khas lezat &amp; gurih • Dibuat fresh setiap hari dengan kuota terbatas.
+                Camilan khas lezat &amp; gurih • Fresh &amp; hangat langsung diantar ke lokasimu.
               </p>
               <div className="pt-2 flex items-center justify-center gap-4 text-[10px]">
                 <button
@@ -235,7 +249,7 @@ export default function Home() {
         {/* Cart Bottom Sheet */}
         {currentScreen === "order" && !isCartOpen && (
           <div
-            className={`fixed bottom-0 left-0 right-0 z-40 md:absolute transition-all duration-500 ease-out ${
+            className={`fixed bottom-0 left-0 right-0 z-40 md:absolute transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               cartItems.length > 0
                 ? "translate-y-0 opacity-100"
                 : "translate-y-full opacity-0 pointer-events-none"
@@ -265,7 +279,10 @@ export default function Home() {
                     <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-md shadow-red-200">
                       <ShoppingBag className="w-5 h-5 text-white" />
                     </div>
-                    <span className="absolute -top-1 -right-1 bg-amber-400 text-neutral-900 text-[10px] font-black min-w-[20px] h-[20px] rounded-full flex items-center justify-center shadow border-2 border-white px-1">
+                    <span
+                      key={totalCartCount}
+                      className="absolute -top-1 -right-1 bg-amber-400 text-neutral-900 text-[10px] font-black min-w-[20px] h-[20px] rounded-full flex items-center justify-center shadow border-2 border-white px-1 animate-pop-in"
+                    >
                       {totalCartCount}
                     </span>
                   </div>
@@ -274,7 +291,10 @@ export default function Home() {
                       <Sparkles className="w-3 h-3 text-amber-400" />
                       <span>Ketuk untuk atur keranjang</span>
                     </p>
-                    <p className="text-sm font-black text-neutral-900 leading-none mt-0.5 group-hover:text-red-600 transition-colors">
+                    <p
+                      key={totalCartPrice}
+                      className="text-sm font-black text-neutral-900 leading-none mt-0.5 group-hover:text-red-600 transition-colors inline-block animate-pop-in"
+                    >
                       {formatRupiah(totalCartPrice)}
                     </p>
                   </div>
@@ -284,10 +304,15 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => router.push("/checkout")}
-                  className="shrink-0 bg-red-600 hover:bg-red-700 active:scale-[0.97] text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-md shadow-red-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="relative overflow-hidden shrink-0 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.96] text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-md shadow-red-600/30 hover:shadow-red-600/45 flex items-center gap-1.5 transition-all cursor-pointer group"
                 >
-                  <span>Pesan Sekarang</span>
-                  <ChevronRight className="w-4 h-4" />
+                  {/* Subtle shimmer beam on CTA */}
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-shimmer" />
+                  </div>
+
+                  <span className="relative z-10 font-black tracking-wide">Buat Pesanan</span>
+                  <ChevronRight className="w-4 h-4 relative z-10 group-hover:translate-x-0.5 transition-transform duration-200" />
                 </button>
               </div>
             </div>

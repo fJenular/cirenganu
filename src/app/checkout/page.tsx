@@ -61,6 +61,7 @@ export default function CheckoutPage() {
       if (savedCart) {
         setItems(JSON.parse(savedCart));
       }
+      localStorage.setItem("cireng_anu_has_onboarded", "true");
     } catch {}
 
     getStoreSettings().then((res) => {
@@ -208,29 +209,19 @@ export default function CheckoutPage() {
   return (
     <DesktopPhoneFrame>
       <div className="min-h-full flex flex-col bg-[#F7F7F8] text-neutral-900 selection:bg-red-500 selection:text-white pb-12">
-        
+
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-neutral-100 shadow-2xs">
-          <div className="px-4 py-3.5 flex items-center justify-between">
-            <Link
-              href="/"
-              className="flex items-center gap-1 text-xs font-black text-neutral-700 hover:text-neutral-900 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Menu</span>
-            </Link>
-
-            <h1 className="text-sm font-black text-neutral-900 tracking-tight">
-              Formulir Pemesanan
-            </h1>
-
-            <div className="w-12 text-right">
-              <span className="text-[11px] font-bold text-neutral-400">
-                PO Fresh
-              </span>
-            </div>
-          </div>
-        </header>
+        <div className="sticky top-0 z-30 bg-white border-b border-neutral-100 px-4 py-3 flex items-center justify-between shadow-2xs">
+          <Link
+            href="/?screen=order"
+            className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 hover:text-red-600 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Daftar Menu</span>
+          </Link>
+          <h1 className="text-xs font-black text-neutral-900">Checkout Pesanan</h1>
+          <div className="w-16" />
+        </div>
 
         {/* Content Area */}
         <div className="flex-1 p-4 space-y-4">
@@ -244,13 +235,13 @@ export default function CheckoutPage() {
               <div>
                 <h2 className="text-lg font-black text-neutral-900">Pesanan Telah Dikirim!</h2>
                 <p className="text-xs text-neutral-500 mt-1 max-w-xs mx-auto leading-relaxed">
-                  Detail pesanan Anda sedang dialihkan ke WhatsApp Admin <b>Anu CiRENG</b> untuk konfirmasi dan proses pembuatan.
+                  Detail pesanan Anda sedang dialihkan ke WhatsApp Admin <b>Cireng Anu</b> untuk konfirmasi dan proses penyiapan.
                 </p>
               </div>
 
               <div className="pt-2">
                 <Link
-                  href="/"
+                  href="/?screen=order"
                   className="inline-flex items-center justify-center gap-2 w-full py-3 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-2xl transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -271,7 +262,7 @@ export default function CheckoutPage() {
                 </p>
               </div>
               <Link
-                href="/"
+                href="/?screen=order"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-2xl transition-colors shadow-md shadow-red-200"
               >
                 <span>Lihat Daftar Menu</span>
@@ -290,7 +281,7 @@ export default function CheckoutPage() {
                     <span>Ringkasan Pesanan ({items.length} Menu)</span>
                   </h3>
                   <Link
-                    href="/"
+                    href="/?screen=order"
                     className="text-[11px] font-bold text-red-600 hover:underline"
                   >
                     Ubah Menu
@@ -384,11 +375,10 @@ export default function CheckoutPage() {
                 </h3>
 
                 {/* Toggle Order Type */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: "delivery", label: "Delivery", desc: "Kirim Kurir", icon: Truck },
-                    { id: "takeaway", label: "Takeaway", desc: "Ambil Sendiri", icon: ShoppingBag },
-                    { id: "dine_in", label: "Dine In", desc: "Makan di Sini", icon: Utensils }
+                    { id: "takeaway", label: "Takeaway", desc: "Ambil Sendiri", icon: ShoppingBag }
                   ].map((t) => {
                     const Icon = t.icon;
                     const isSelected = orderType === t.id;
@@ -493,50 +483,6 @@ export default function CheckoutPage() {
                     );
                   })}
                 </div>
-              </div>
-
-              {/* Card 5: Promo Code Input */}
-              <div className="bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-xs space-y-2.5">
-                <h3 className="font-black text-xs text-neutral-900 flex items-center gap-1.5">
-                  <Tag className="w-4 h-4 text-amber-500" />
-                  <span>Kupon / Kode Promo</span>
-                </h3>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={promoCodeInput}
-                    onChange={(e) => setPromoCodeInput(e.target.value)}
-                    placeholder="Masukkan kode promo..."
-                    className="flex-1 px-3.5 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none uppercase font-bold text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyPromo}
-                    className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Gunakan
-                  </button>
-                </div>
-
-                {appliedPromo && (
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-[11px] text-emerald-800">
-                    <span className="font-bold">✓ Promo {appliedPromo.code}: Diskon {formatRupiah(appliedPromo.discount)}</span>
-                    <button
-                      type="button"
-                      onClick={() => setAppliedPromo(null)}
-                      className="text-emerald-700 underline font-bold"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                )}
-
-                {promoError && (
-                  <p className="text-[11px] text-red-500 font-bold">
-                    {promoError}
-                  </p>
-                )}
               </div>
 
               {/* Card 6: Payment Breakdown & Total */}
