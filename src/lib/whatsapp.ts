@@ -1,7 +1,7 @@
 import { CartItem, OrderCustomerInfo } from "./types";
 
 /** Nomor WhatsApp admin — hanya bisa diubah lewat kode sumber */
-export const WHATSAPP_NUMBER = "083871136586";
+export const WHATSAPP_NUMBER = "089627711497";
 
 export function formatRupiah(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
