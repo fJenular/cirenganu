@@ -156,7 +156,7 @@ export const INITIAL_MENUS: MenuItem[] = [
 ];
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
-  whatsapp_number: "6281234567890",
+  whatsapp_number: "089627711497",
   store_name: "Cireng Anu",
   is_open: true,
   opening_hours: "10:00 - 21:30 WIB",

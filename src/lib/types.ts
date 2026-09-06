@@ -3,7 +3,7 @@ export interface MenuItem {
   name: string;
   category: 'cireng-cimol' | 'pempek' | 'cheese-roll' | 'dimsum' | 'snack' | 'siap-makan' | 'frozen';
   description: string;
-  unit_info: string; // e.g. "3 pcs", "4 pcs · Rp5k", "Porsi Kenyang"
+  unit_info: string; // e.g. "3 pcs", "4 pcs A¼ Rp5k", "Porsi Kenyang"
   price: number;
   image_url: string;
   badge?: string; // "Best Seller", "Favorit", "Crispy", "Pedas Gurih"
@@ -44,7 +44,7 @@ export interface OrderCustomerInfo {
   orderType: 'delivery' | 'takeaway' | 'dine_in';
   address?: string;
   notes?: string;
-  paymentMethod: 'qris' | 'transfer' | 'cash';
+  paymentMethod: 'qris';
 }
 
 export interface OrderRecord {
@@ -62,6 +62,8 @@ export interface OrderRecord {
   promo_code?: string;
   customer_notes?: string;
   status: 'Baru' | 'Diproses' | 'Selesai' | 'Dibatalkan';
+  payment_proof_url?: string;
+  payment_status?: 'Menunggu' | 'Dibayar' | 'Ditolak';
   created_at: string;
 }
 

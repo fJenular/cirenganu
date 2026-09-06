@@ -220,6 +220,8 @@ export async function createOrder(order: OrderRecord): Promise<{ success: boolea
       promo_code: order.promo_code || null,
       customer_notes: order.customer_notes || null,
       status: order.status || "Baru",
+      payment_proof_url: order.payment_proof_url || null,
+      payment_status: order.payment_status || "Menunggu",
       created_at: order.created_at
     });
 
@@ -239,6 +241,83 @@ export async function createOrder(order: OrderRecord): Promise<{ success: boolea
   } catch (err: any) {
     console.error("Order creation error:", err);
     return { success: false, error: err.message };
+  }
+}
+
+export async function uploadPaymentProof(orderId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const filePath = `proofs/${orderId}_${Date.now()}.${ext}`;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('payment-proofs')
+      .upload(filePath, file, { upsert: true });
+
+    if (!error && data) {
+      const { data: publicUrlData } = supabase.storage
+        .from('payment-proofs')
+        .getPublicUrl(filePath);
+      return publicUrlData.publicUrl;
+    }
+  } catch (e) {
+    console.warn("Storage upload failed, falling back to data URL:", e);
+  }
+
+  // Fallback: convert file to base64 Data URL if Supabase storage bucket isn't set up yet
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function updateOrderPaymentProof(orderId: string, proofUrl: string): Promise<boolean> {
+  try {
+    await supabase.from("orders").update({
+      payment_proof_url: proofUrl,
+      payment_status: "Menunggu"
+    }).eq("id", orderId);
+
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(LOCAL_STORAGE_ORDERS_KEY);
+      if (stored) {
+        const list: OrderRecord[] = JSON.parse(stored);
+        const idx = list.findIndex((o) => o.id === orderId);
+        if (idx >= 0) {
+          list[idx].payment_proof_url = proofUrl;
+          list[idx].payment_status = "Menunggu";
+          localStorage.setItem(LOCAL_STORAGE_ORDERS_KEY, JSON.stringify(list));
+        }
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to update payment proof:", err);
+    return false;
+  }
+}
+
+export async function updatePaymentStatus(
+  orderId: string,
+  paymentStatus: OrderRecord["payment_status"]
+): Promise<boolean> {
+  try {
+    await supabase.from("orders").update({ payment_status: paymentStatus }).eq("id", orderId);
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(LOCAL_STORAGE_ORDERS_KEY);
+      if (stored) {
+        const list: OrderRecord[] = JSON.parse(stored);
+        const idx = list.findIndex((o) => o.id === orderId);
+        if (idx >= 0) {
+          list[idx].payment_status = paymentStatus;
+          localStorage.setItem(LOCAL_STORAGE_ORDERS_KEY, JSON.stringify(list));
+        }
+      }
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 

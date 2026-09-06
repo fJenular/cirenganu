@@ -30,7 +30,8 @@ import {
   Clock,
   Sparkles,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
+  FileCheck
 } from "lucide-react";
 import { MenuItem, OrderRecord, StoreSettings } from "@/lib/types";
 import { formatRupiah } from "@/lib/whatsapp";
@@ -40,6 +41,7 @@ import {
   deleteMenu,
   getOrders,
   updateOrderStatus,
+  updatePaymentStatus,
   getStoreSettings,
   saveStoreSettings
 } from "@/lib/supabase";
@@ -78,10 +80,11 @@ export default function AdminPage() {
   const [adminEditingMenu, setAdminEditingMenu] = useState<MenuItem | null>(null);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
 
-  // Order Filter & Receipt State
+  // Order Filter & Receipt & Proof Modal State
   const [searchOrder, setSearchOrder] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<OrderRecord | null>(null);
+  const [previewProofModalUrl, setPreviewProofModalUrl] = useState<string | null>(null);
 
   // Menu Filter State
   const [menuSearch, setMenuSearch] = useState("");
@@ -226,6 +229,13 @@ export default function AdminPage() {
     await updateOrderStatus(orderId, newStatus);
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+    );
+  };
+
+  const handlePaymentStatusChange = async (orderId: string, pStatus: OrderRecord["payment_status"]) => {
+    await updatePaymentStatus(orderId, pStatus);
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, payment_status: pStatus } : o))
     );
   };
 
@@ -662,7 +672,7 @@ export default function AdminPage() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filteredOrders.map((ord) => {
-                  const statusColors: { [k: string]: string } = {
+              const statusColors: { [k: string]: string } = {
                     Baru: "bg-amber-100 text-amber-900 border-amber-300",
                     Diproses: "bg-blue-100 text-blue-900 border-blue-300",
                     Selesai: "bg-emerald-100 text-emerald-900 border-emerald-300",
@@ -671,6 +681,13 @@ export default function AdminPage() {
 
                   const cleanPhone = (ord.customer_phone || "").replace(/[^0-9]/g, "");
                   const waCustomerUrl = `https://wa.me/${cleanPhone.startsWith("0") ? "62" + cleanPhone.slice(1) : cleanPhone}`;
+
+                  const paymentStatus = ord.payment_status || "Menunggu";
+                  const paymentStatusBadge = {
+                    Menunggu: "bg-amber-100 text-amber-900 border-amber-300",
+                    Dibayar: "bg-emerald-100 text-emerald-900 border-emerald-300",
+                    Ditolak: "bg-red-100 text-red-900 border-red-300"
+                  }[paymentStatus] || "bg-neutral-100 text-neutral-700";
 
                   return (
                     <div
@@ -704,14 +721,19 @@ export default function AdminPage() {
                             <span className="text-base font-black text-red-600 block">
                               {formatRupiah(ord.total_amount)}
                             </span>
-                            <span className="text-[10px] text-neutral-400 uppercase font-bold">
-                              {ord.payment_method}
-                            </span>
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="text-[10px] text-neutral-400 uppercase font-bold">
+                                {ord.payment_method}
+                              </span>
+                              <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${paymentStatusBadge}`}>
+                                {paymentStatus}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
                         {/* Customer & Delivery Details */}
-                        <div className="mt-2.5 bg-neutral-50 p-3 rounded-2xl text-xs space-y-1.5">
+                        <div className="mt-2.5 bg-neutral-50 p-3 rounded-2xl text-xs space-y-2">
                           <div className="flex items-center justify-between">
                             <p className="font-bold text-neutral-800">
                               👤 {ord.customer_name}
@@ -728,7 +750,7 @@ export default function AdminPage() {
                           </div>
 
                           <p className="text-neutral-600 font-medium">
-                            📦 Tipe: <span className="capitalize font-bold text-neutral-900">{ord.order_type}</span>
+                            🚚 Tipe: <span className="capitalize font-bold text-neutral-900">{ord.order_type}</span>
                           </p>
 
                           {ord.delivery_address && (
@@ -742,6 +764,51 @@ export default function AdminPage() {
                               📝 &ldquo;{ord.customer_notes}&rdquo;
                             </p>
                           )}
+
+                          {/* Bukti Pembayaran Section */}
+                          <div className="pt-2 border-t border-neutral-200/60 flex items-center justify-between gap-2">
+                            <div>
+                              <span className="text-[10px] font-bold text-neutral-500 block">Bukti Pembayaran QRIS:</span>
+                              {ord.payment_proof_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewProofModalUrl(ord.payment_proof_url || null)}
+                                  className="text-[11px] font-bold text-red-600 hover:text-red-700 underline flex items-center gap-1 mt-0.5 cursor-pointer"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Lihat Bukti Foto</span>
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-neutral-400 italic">Belum diunggah</span>
+                              )}
+                            </div>
+
+                            {/* Quick Payment Actions */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handlePaymentStatusChange(ord.id, "Dibayar")}
+                                className={`px-2 py-1 rounded-lg font-bold text-[10px] transition-colors cursor-pointer ${
+                                  paymentStatus === "Dibayar"
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                                }`}
+                              >
+                                ✓ Verifikasi Lunas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePaymentStatusChange(ord.id, "Ditolak")}
+                                className={`px-2 py-1 rounded-lg font-bold text-[10px] transition-colors cursor-pointer ${
+                                  paymentStatus === "Ditolak"
+                                    ? "bg-red-600 text-white"
+                                    : "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                                }`}
+                              >
+                                ✕ Tolak
+                              </button>
+                            </div>
+                          </div>
 
                           {/* Items summary */}
                           <div className="pt-2 border-t border-neutral-200/60 text-neutral-700 font-medium space-y-1">
@@ -1161,12 +1228,12 @@ export default function AdminPage() {
                       required
                       value={waNumber}
                       onChange={(e) => setWaNumber(e.target.value)}
-                      placeholder="6281234567890"
+                      placeholder="089627711497"
                       className="w-full pl-10 pr-3 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:bg-white focus:outline-none font-bold"
                     />
                   </div>
                   <span className="text-[10px] text-neutral-400 mt-0.5 block">
-                    Gunakan format internasional tanpa spasi/tanda hubung (Contoh: 6281234567890)
+                    Gunakan nomor WhatsApp toko (Contoh: 089627711497)
                   </span>
                 </div>
 
@@ -1449,6 +1516,48 @@ export default function AdminPage() {
               >
                 Tutup
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Proof Image Preview Modal */}
+      {previewProofModalUrl && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-neutral-900 rounded-3xl p-4 max-w-lg w-full shadow-2xl space-y-3 relative text-white">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <h3 className="font-black text-sm text-white flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-emerald-400" />
+                <span>Bukti Pembayaran QRIS</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPreviewProofModalUrl(null)}
+                className="w-8 h-8 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white flex items-center justify-center font-bold cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="relative w-full h-[65vh] rounded-2xl overflow-hidden bg-black/40 border border-neutral-800">
+              <Image
+                src={previewProofModalUrl}
+                alt="Bukti Transfer Detail"
+                fill
+                className="object-contain"
+              />
+            </div>
+
+            <div className="pt-2 text-center">
+              <a
+                href={previewProofModalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-bold hover:underline"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Buka Gambar di Tab Baru</span>
+              </a>
             </div>
           </div>
         </div>
