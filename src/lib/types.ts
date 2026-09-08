@@ -61,7 +61,7 @@ export interface OrderRecord {
   total_amount: number;
   promo_code?: string;
   customer_notes?: string;
-  status: 'Baru' | 'Diproses' | 'Selesai' | 'Dibatalkan';
+  status: 'Baru' | 'Diproses' | 'Selesai' | 'Dibatalkan' | 'Dihapus';
   payment_proof_url?: string;
   payment_status?: 'Menunggu' | 'Dibayar' | 'Ditolak';
   created_at: string;

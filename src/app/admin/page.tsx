@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -40,6 +40,7 @@ import {
   saveMenu,
   deleteMenu,
   getOrders,
+  deleteOrder,
   updateOrderStatus,
   updatePaymentStatus,
   getStoreSettings,
@@ -85,6 +86,8 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<OrderRecord | null>(null);
   const [previewProofModalUrl, setPreviewProofModalUrl] = useState<string | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<OrderRecord | null>(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
 
   // Menu Filter State
   const [menuSearch, setMenuSearch] = useState("");
@@ -99,6 +102,11 @@ export default function AdminPage() {
   const [storeAddress, setStoreAddress] = useState(DEFAULT_STORE_SETTINGS.store_address);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSuccessMsg, setSettingsSuccessMsg] = useState("");
+
+  // Store toggle: confirmation modal + animation
+  const [storeConfirmModal, setStoreConfirmModal] = useState<null | "closing" | "opening">(null);
+  const [storeToggleAnim, setStoreToggleAnim] = useState<null | "closing" | "opening">(null);
+  const [isTogglingStore, setIsTogglingStore] = useState(false);
 
   // Check auth & load data on mount
   useEffect(() => {
@@ -224,12 +232,71 @@ export default function AdminPage() {
     }
   };
 
+  // Animated toggle store open/close
+  const handleToggleStoreStatus = useCallback(() => {
+    // Open confirmation modal instead of toggling directly
+    setStoreConfirmModal(isOpenStore ? "closing" : "opening");
+  }, [isOpenStore]);
+
+  // Confirmed: save directly to DB and play animation
+  const handleConfirmStoreToggle = useCallback(async () => {
+    if (!storeConfirmModal) return;
+    setStoreConfirmModal(null);
+    const nextValue = storeConfirmModal === "opening";
+    setIsTogglingStore(true);
+
+    // Play animation
+    setStoreToggleAnim(storeConfirmModal);
+
+    try {
+      const updated: StoreSettings = {
+        ...storeSettings,
+        whatsapp_number: waNumber,
+        store_name: storeName,
+        is_open: nextValue,
+        delivery_fee_default: Number(deliveryFee),
+        opening_hours: openingHours,
+        store_address: storeAddress
+      };
+      await saveStoreSettings(updated);
+      setStoreSettings(updated);
+      setIsOpenStore(nextValue);
+    } catch {
+      alert("Gagal mengubah status toko.");
+    } finally {
+      setIsTogglingStore(false);
+    }
+
+    // Clear animation after delay
+    setTimeout(() => setStoreToggleAnim(null), 1400);
+  }, [storeConfirmModal, storeSettings, waNumber, storeName, deliveryFee, openingHours, storeAddress]);
+
   // Status Change for Orders
   const handleStatusChange = async (orderId: string, newStatus: OrderRecord["status"]) => {
     await updateOrderStatus(orderId, newStatus);
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
+  };
+
+  // Delete Order (Only allowed after status is Dibatalkan)
+  const handleConfirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    if (orderToDelete.status !== "Dibatalkan") {
+      alert("Pesanan harus diubah ke status 'Dibatalkan' terlebih dahulu sebelum dapat dihapus.");
+      return;
+    }
+
+    setIsDeletingOrder(true);
+    try {
+      await deleteOrder(orderToDelete.id);
+      setOrders((prev) => prev.filter((o) => o.id !== orderToDelete.id));
+      setOrderToDelete(null);
+    } catch {
+      alert("Gagal menghapus pesanan.");
+    } finally {
+      setIsDeletingOrder(false);
+    }
   };
 
   const handlePaymentStatusChange = async (orderId: string, pStatus: OrderRecord["payment_status"]) => {
@@ -501,6 +568,153 @@ export default function AdminPage() {
   // ==========================================
   return (
     <div className="min-h-screen bg-[#F4F4F8] text-neutral-900 flex flex-col selection:bg-red-500 selection:text-white relative">
+
+      {/* =============================================
+          STORE TOGGLE ANIMATION OVERLAY
+      ============================================= */}
+      {storeToggleAnim && (
+        <div
+          className="fixed inset-0 z-[999] flex flex-col items-center justify-center pointer-events-none overflow-hidden"
+          aria-hidden
+        >
+          {storeToggleAnim === "closing" ? (
+            <>
+              <div className="absolute inset-x-0 top-0 h-full bg-neutral-950 animate-shutter-down origin-top" />
+              <div className="relative z-10 flex flex-col items-center gap-4 animate-in fade-in delay-300 duration-300">
+                <div className="w-20 h-20 rounded-full bg-red-600/20 border-2 border-red-500/60 flex items-center justify-center animate-sign-flash">
+                  <XCircle className="w-10 h-10 text-red-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-white text-xl font-black tracking-tight">🔒 Toko Ditutup</p>
+                  <p className="text-neutral-400 text-xs mt-1 font-medium">Status berhasil disimpan ke database</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-emerald-600/15 animate-in fade-in duration-500" />
+              <div className="relative z-10 flex flex-col items-center gap-4 animate-store-open-reveal">
+                <div className="w-20 h-20 rounded-full bg-emerald-600/20 border-2 border-emerald-500/60 flex items-center justify-center">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-neutral-900 text-xl font-black tracking-tight">✅ Toko Dibuka!</p>
+                  <p className="text-neutral-600 text-xs mt-1 font-medium">Status berhasil disimpan ke database</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* =============================================
+          STORE STATUS CONFIRM MODAL
+      ============================================= */}
+      {storeConfirmModal && (
+        <div className="fixed inset-0 z-[998] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+
+            {/* Modal header */}
+            <div className={`px-6 pt-6 pb-5 text-center ${storeConfirmModal === "closing" ? "bg-red-50" : "bg-emerald-50"}`}>
+              <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-3 ${
+                storeConfirmModal === "closing"
+                  ? "bg-red-100 border-2 border-red-200"
+                  : "bg-emerald-100 border-2 border-emerald-200"
+              }`}>
+                {storeConfirmModal === "closing"
+                  ? <XCircle className="w-8 h-8 text-red-600" />
+                  : <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                }
+              </div>
+              <h3 className="font-black text-base text-neutral-900">
+                {storeConfirmModal === "closing" ? "Tutup Toko Sekarang?" : "Buka Toko Sekarang?"}
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
+                {storeConfirmModal === "closing"
+                  ? "Customer tidak akan bisa memesan secara langsung. Mereka masih bisa melakukan Pre-Order untuk besok."
+                  : "Toko akan aktif dan customer bisa langsung memesan. Status akan tersimpan ke database."}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 py-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setStoreConfirmModal(null)}
+                disabled={isTogglingStore}
+                className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-2xl font-bold text-sm transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-store-toggle"
+                onClick={handleConfirmStoreToggle}
+                disabled={isTogglingStore}
+                className={`flex-1 py-3 text-white rounded-2xl font-black text-sm transition-all cursor-pointer disabled:opacity-60 active:scale-[0.98] shadow-lg ${
+                  storeConfirmModal === "closing"
+                    ? "bg-red-600 hover:bg-red-700 shadow-red-600/25"
+                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
+                }`}
+              >
+                {isTogglingStore
+                  ? "Menyimpan..."
+                  : storeConfirmModal === "closing"
+                  ? "Ya, Tutup Toko"
+                  : "Ya, Buka Toko"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* =============================================
+          ORDER DELETE CONFIRMATION MODAL
+      ============================================= */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-[998] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal header */}
+            <div className="px-6 pt-6 pb-5 text-center bg-red-50">
+              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-3 bg-red-100 border-2 border-red-200">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="font-black text-base text-neutral-900">
+                Hapus Pesanan #{orderToDelete.id}?
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
+                Pesanan atas nama <strong className="text-neutral-800">{orderToDelete.customer_name}</strong> bernilai <strong className="text-red-600">{formatRupiah(orderToDelete.total_amount)}</strong> ini sudah berstatus <em>Dibatalkan</em>.
+              </p>
+              <div className="mt-3 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 text-[11px] text-amber-800 text-left">
+                ⚠️ <strong>Perhatian:</strong> Data pesanan akan dihapus permanen dari sistem dan tidak dapat dipulihkan.
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 py-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                disabled={isDeletingOrder}
+                className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-2xl font-bold text-sm transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-delete-order"
+                onClick={handleConfirmDeleteOrder}
+                disabled={isDeletingOrder}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black text-sm transition-all cursor-pointer disabled:opacity-60 active:scale-[0.98] shadow-lg shadow-red-600/25 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingOrder ? "Menghapus..." : "Ya, Hapus"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 bg-neutral-900 text-white shadow-lg border-b border-neutral-800">
@@ -827,15 +1041,40 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      {/* Actions row: View Receipt & Status Change */}
+                      {/* Actions row: View Receipt, Delete Order & Status Change */}
                       <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 text-xs">
-                        <button
-                          onClick={() => setSelectedOrderForReceipt(ord)}
-                          className="flex items-center gap-1 font-bold text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-2.5 py-1.5 rounded-xl cursor-pointer transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-neutral-500" />
-                          <span>Lihat Struk</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedOrderForReceipt(ord)}
+                            className="flex items-center gap-1 font-bold text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-2.5 py-1.5 rounded-xl cursor-pointer transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-neutral-500" />
+                            <span>Lihat Struk</span>
+                          </button>
+
+                          {/* Tombol Hapus Pesanan: Harus diubah ke status 'Dibatalkan' terlebih dahulu */}
+                          {ord.status === "Dibatalkan" ? (
+                            <button
+                              type="button"
+                              onClick={() => setOrderToDelete(ord)}
+                              className="flex items-center gap-1 font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-xl cursor-pointer transition-all active:scale-95 animate-in fade-in"
+                              title="Hapus pesanan ini secara permanen"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Hapus</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="flex items-center gap-1 font-medium text-neutral-400 bg-neutral-100/70 border border-neutral-200/50 px-2.5 py-1.5 rounded-xl cursor-not-allowed opacity-60"
+                              title="Ubah status ke 'Dibatalkan' terlebih dahulu agar pesanan dapat dihapus"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-neutral-400" />
+                              <span>Hapus</span>
+                            </button>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-1">
                           <span className="text-[11px] text-neutral-400 font-bold mr-1">Ubah Status:</span>
@@ -1272,25 +1511,29 @@ export default function AdminPage() {
                   <label className="font-bold text-neutral-700 block mb-1">Status Toko</label>
                   <button
                     type="button"
-                    onClick={() => setIsOpenStore(!isOpenStore)}
-                    className={`w-full py-3 px-4 rounded-xl font-bold border transition-colors cursor-pointer text-center text-xs flex items-center justify-center gap-2 ${
+                    onClick={handleToggleStoreStatus}
+                    disabled={!!storeToggleAnim || isTogglingStore}
+                    className={`w-full py-3 px-4 rounded-xl font-bold border transition-all cursor-pointer text-center text-xs flex items-center justify-center gap-2 ${
                       isOpenStore
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                        : "bg-red-50 text-red-800 border-red-300"
-                    }`}
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                        : "bg-red-50 text-red-800 border-red-300 hover:bg-red-100"
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     {isOpenStore ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Toko Buka (Menerima Pesanan Customer)</span>
+                        <span>Toko Buka — Klik untuk Tutup</span>
                       </>
                     ) : (
                       <>
                         <XCircle className="w-4 h-4 text-red-600" />
-                        <span>Toko Tutup Sementara</span>
+                        <span>Toko Tutup — Klik untuk Buka</span>
                       </>
                     )}
                   </button>
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    Perubahan status toko akan langsung tersimpan ke database saat dikonfirmasi.
+                  </p>
                 </div>
 
                 <button

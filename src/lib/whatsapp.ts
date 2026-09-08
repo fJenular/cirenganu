@@ -43,7 +43,14 @@ export function buildWhatsAppMessage(
 
   msg += `📋 *NO. PESANAN: #${orderId}*\n`;
   msg += `🕒 Waktu Pemesanan: ${dateStr}\n`;
-  msg += `⚡ *Status: Pesanan Langsung (Order Online)*\n`;
+
+  // Pre-order detection from notes prefix
+  const isPreOrder = (customer.notes || "").startsWith("[📦 PRE-ORDER");
+  if (isPreOrder) {
+    msg += `📦 *STATUS: PRE-ORDER (Besok)* — Mohon konfirmasi waktu penyiapan\n`;
+  } else {
+    msg += `⚡ *Status: Pesanan Langsung (Order Online)*\n`;
+  }
   msg += `-------------------------\n\n`;
 
   msg += `🍟 *RINCIAN MENU PESANAN:*\n`;

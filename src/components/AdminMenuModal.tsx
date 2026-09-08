@@ -1,9 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { X, Plus, Trash2, Save, Image as ImageIcon, Sparkles, Package } from "lucide-react";
+import {
+  X,
+  Plus,
+  Trash2,
+  Save,
+  Image as ImageIcon,
+  Sparkles,
+  Package,
+  Upload,
+  Link as LinkIcon,
+  Loader2,
+  Check
+} from "lucide-react";
 import { MenuItem } from "@/lib/types";
+import { uploadMenuImage } from "@/lib/supabase";
 
 interface Props {
   isOpen: boolean;
@@ -19,6 +32,10 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
   const [unitInfo, setUnitInfo] = useState("");
   const [price, setPrice] = useState<number>(10000);
   const [imageUrl, setImageUrl] = useState("");
+  const [imageInputMode, setImageInputMode] = useState<"upload" | "url">("upload");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [badge, setBadge] = useState("");
   const [isAvailable, setIsAvailable] = useState(true);
   const [stockMode, setStockMode] = useState<"unlimited" | "limited">("limited");
@@ -30,20 +47,20 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
 
   useEffect(() => {
     if (menuItem) {
-      setName(menuItem.name);
-      setCategory(menuItem.category);
-      setDescription(menuItem.description);
-      setUnitInfo(menuItem.unit_info);
-      setPrice(menuItem.price);
-      setImageUrl(menuItem.image_url);
+      setName(menuItem.name || "");
+      setCategory(menuItem.category || "cireng-cimol");
+      setDescription(menuItem.description || "");
+      setUnitInfo(menuItem.unit_info || "");
+      setPrice(menuItem.price ?? 10000);
+      setImageUrl(menuItem.image_url || "");
       setBadge(menuItem.badge || "");
-      setIsAvailable(menuItem.is_available);
-      if (menuItem.stock === null) {
+      setIsAvailable(menuItem.is_available ?? true);
+      if (menuItem.stock === null || menuItem.stock === undefined) {
         setStockMode("unlimited");
         setStockValue(20);
       } else {
         setStockMode("limited");
-        setStockValue(menuItem.stock);
+        setStockValue(menuItem.stock ?? 20);
       }
       setVariantTitle(menuItem.variant_title || "");
       setVariantOptionsText(menuItem.variant_options ? menuItem.variant_options.join(", ") : "");
@@ -66,6 +83,36 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
   }, [menuItem, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("File harus berupa gambar (JPG, PNG, WebP).");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("Ukuran gambar maksimal 10MB.");
+      return;
+    }
+
+    setUploadError(null);
+    setIsUploadingImage(true);
+    try {
+      const url = await uploadMenuImage(file);
+      setImageUrl(url);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setUploadError("Gagal mengunggah foto. Silakan coba lagi.");
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +195,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
               <input
                 type="text"
                 required
-                value={name}
+                value={name || ""}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Contoh: CIMOL KUAH KEJU"
                 className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none"
@@ -158,7 +205,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
             <div>
               <label className="font-bold text-neutral-700 block mb-1">Kategori *</label>
               <select
-                value={category}
+                value={category || "cireng-cimol"}
                 onChange={(e) => setCategory(e.target.value as any)}
                 className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none"
               >
@@ -182,7 +229,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
                 required
                 min={1000}
                 step={500}
-                value={price}
+                value={price ?? 0}
                 onChange={(e) => setPrice(Number(e.target.value))}
                 className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none font-bold text-red-600"
               />
@@ -192,7 +239,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
               <label className="font-bold text-neutral-700 block mb-1">Info Porsi / Unit</label>
               <input
                 type="text"
-                value={unitInfo}
+                value={unitInfo || ""}
                 onChange={(e) => setUnitInfo(e.target.value)}
                 placeholder="Contoh: 4 pcs · Rp5k"
                 className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none"
@@ -205,26 +252,148 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
             <label className="font-bold text-neutral-700 block mb-1">Deskripsi Menu</label>
             <textarea
               rows={3}
-              value={description}
+              value={description || ""}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Deskripsi kelezatan, tekstur, dan rasa..."
               className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none"
             />
           </div>
 
-          {/* Image URL & Preview */}
-          <div>
-            <label className="font-bold text-neutral-700 block mb-1 flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5 text-neutral-400" />
-              <span>URL Foto Menu</span>
-            </label>
+          {/* Foto Menu: Upload File atau Masukkan URL */}
+          <div className="space-y-2.5 p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-neutral-800 flex items-center gap-1.5 text-xs">
+                <ImageIcon className="w-4 h-4 text-red-600" />
+                <span>Foto Menu</span>
+              </label>
+
+              {/* Mode switch */}
+              <div className="flex items-center bg-neutral-200/70 p-0.5 rounded-xl text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => { setImageInputMode("upload"); setUploadError(null); }}
+                  className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                    imageInputMode === "upload"
+                      ? "bg-white text-neutral-900 shadow-xs"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  <Upload className="w-3 h-3" />
+                  <span>Upload Foto</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setImageInputMode("url"); setUploadError(null); }}
+                  className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                    imageInputMode === "url"
+                      ? "bg-white text-neutral-900 shadow-xs"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  <LinkIcon className="w-3 h-3" />
+                  <span>URL Link</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Hidden file input - placed outside conditional block to prevent DOM element reuse between file and text input */}
             <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none"
+              key="menu-photo-file-input"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="menu-photo-file-input"
             />
+
+            {/* Upload Mode */}
+            {imageInputMode === "upload" ? (
+              <div className="space-y-2">
+                <div
+                  onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all ${
+                    isUploadingImage
+                      ? "border-red-400 bg-red-50/50 cursor-wait"
+                      : "border-neutral-300 hover:border-red-500 hover:bg-neutral-100/60 bg-white"
+                  }`}
+                >
+                  {isUploadingImage ? (
+                    <div className="flex flex-col items-center justify-center py-2 text-red-600">
+                      <Loader2 className="w-6 h-6 animate-spin mb-1.5" />
+                      <p className="font-bold text-xs">Mengunggah & memproses foto...</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">Harap tunggu sebentar</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-1">
+                      <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-2">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                      <p className="font-bold text-neutral-800 text-xs">
+                        Klik untuk upload foto dari galeri / perangkat
+                      </p>
+                      <p className="text-[10px] text-neutral-400 mt-1">
+                        Mendukung format JPG, PNG, WEBP (Maksimal 10MB)
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {uploadError && (
+                  <p className="text-[11px] text-red-500 font-bold bg-red-50 border border-red-200 rounded-xl px-3 py-1.5">
+                    ⚠️ {uploadError}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* URL Mode */
+              <div className="space-y-1.5">
+                <input
+                  key="menu-photo-url-input"
+                  type="url"
+                  value={imageUrl || ""}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none text-xs font-medium"
+                />
+                <p className="text-[10px] text-neutral-400">
+                  Gunakan URL gambar dari internet seperti Unsplash atau CDN.
+                </p>
+              </div>
+            )}
+
+            {/* Preview Box if image exists */}
+            {imageUrl && (
+              <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-neutral-200 mt-2">
+                <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-neutral-100 shrink-0 border border-neutral-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/logo.jpg";
+                    }}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 mb-1">
+                    <Check className="w-3 h-3" /> Foto Terpilih
+                  </span>
+                  <p className="text-[10px] text-neutral-500 truncate" title={imageUrl}>
+                    {imageUrl.startsWith("data:") ? "Foto dari galeri / perangkat" : imageUrl}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImageUrl("")}
+                  className="p-1.5 text-neutral-400 hover:text-red-600 rounded-lg hover:bg-neutral-100 transition-colors"
+                  title="Hapus foto"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Badge & Stock Management */}
@@ -233,7 +402,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
               <label className="font-bold text-neutral-700 block mb-1">Tag / Badge</label>
               <input
                 type="text"
-                value={badge}
+                value={badge || ""}
                 onChange={(e) => setBadge(e.target.value)}
                 placeholder="Misal: 🔥 Best Seller, 🧀 Lumer"
                 className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:outline-none"
@@ -310,7 +479,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
                     type="number"
                     min={0}
                     max={9999}
-                    value={stockValue}
+                    value={stockValue ?? 0}
                     onChange={(e) => setStockValue(Math.max(0, Number(e.target.value)))}
                     className="flex-1 text-center px-3 py-2 bg-white rounded-xl border border-neutral-200 focus:border-amber-500 focus:outline-none font-black text-lg text-amber-600"
                   />
@@ -353,7 +522,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
               <label className="text-neutral-600 block mb-0.5">Judul Varian (Opsional)</label>
               <input
                 type="text"
-                value={variantTitle}
+                value={variantTitle || ""}
                 onChange={(e) => setVariantTitle(e.target.value)}
                 placeholder="Contoh: Pilihan Isian Cireng"
                 className="w-full px-3 py-1.5 bg-neutral-50 rounded-lg border border-neutral-200"
@@ -364,7 +533,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
               <label className="text-neutral-600 block mb-0.5">Pilihan Opsi Varian</label>
               <input
                 type="text"
-                value={variantOptionsText}
+                value={variantOptionsText || ""}
                 onChange={(e) => setVariantOptionsText(e.target.value)}
                 placeholder="Isi Ayam, Isi Keju, Mix"
                 className="w-full px-3 py-1.5 bg-neutral-50 rounded-lg border border-neutral-200"
@@ -375,7 +544,7 @@ export default function AdminMenuModal({ isOpen, onClose, menuItem, onSave }: Pr
               <label className="text-neutral-600 block mb-0.5">Opsi Level Pedas</label>
               <input
                 type="text"
-                value={spicyLevelsText}
+                value={spicyLevelsText || ""}
                 onChange={(e) => setSpicyLevelsText(e.target.value)}
                 placeholder="Level 0, Level 1: Pedas Sedang, Level 2: Extra Pedas"
                 className="w-full px-3 py-1.5 bg-neutral-50 rounded-lg border border-neutral-200"

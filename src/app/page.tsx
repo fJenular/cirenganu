@@ -18,6 +18,7 @@ import ProductDetailModal from "@/components/ProductDetailModal";
 import CartDrawer from "@/components/CartDrawer";
 import SplashLoader from "@/components/SplashLoader";
 import WelcomeScreen from "@/components/WelcomeScreen";
+import StoreClosedBanner from "@/components/StoreClosedBanner";
 import { MenuGridSkeleton } from "@/components/LoadingSkeleton";
 import { MenuItem, CartItem, StoreSettings } from "@/lib/types";
 import { formatRupiah } from "@/lib/whatsapp";
@@ -43,6 +44,9 @@ export default function Home() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+
+  // Pre-order state: when store is closed and user chooses to pre-order
+  const [isPreOrderMode, setIsPreOrderMode] = useState(false);
 
   const menuSectionRef = useRef<HTMLDivElement>(null);
 
@@ -138,110 +142,164 @@ export default function Home() {
             }}
           />
         ) : (
-          <div className="min-h-full flex flex-col bg-[#F7F7F8] pb-28 animate-in fade-in duration-300">
+          <div className="min-h-full flex flex-col bg-[#F7F7F8] pb-28 animate-in fade-in duration-300 relative">
 
-            {/* App Header */}
-            <div ref={menuSectionRef} className="bg-white">
-              <Header />
-            </div>
+            {/* ── Background page content (always rendered, dimmed when closed) ── */}
+            <div className={!storeSettings.is_open && !isPreOrderMode ? "pointer-events-none select-none" : ""}>
 
-            {/* Sticky Variant Tabs */}
-            <div className="sticky top-0 z-20">
-              <CategoryTabs
-                activeVariant={activeVariant}
-                onSelectVariant={setActiveVariant}
-              />
-            </div>
+              {/* App Header */}
+              <div ref={menuSectionRef} className="bg-white">
+                <Header />
+              </div>
 
-            {/* Menu count label */}
-            <div className="px-4 pt-3 pb-1">
-              <p className="text-[11px] text-neutral-400 font-medium">
-                {isLoadingMenus ? "Memuat menu..." : `${displayedMenus.length} menu tersedia`}
-              </p>
-            </div>
+              {/* Sticky Variant Tabs */}
+              <div className="sticky top-0 z-[5]">
+                <CategoryTabs
+                  activeVariant={activeVariant}
+                  onSelectVariant={setActiveVariant}
+                />
+              </div>
 
-            {/* Menu Grid */}
-            <div className="px-4 pb-4">
-              {isLoadingMenus ? (
-                <MenuGridSkeleton count={6} />
-              ) : displayedMenus.length === 0 ? (
-                <div className="bg-white rounded-2xl p-10 text-center border border-neutral-200/80 my-2 shadow-xs">
-                  <p className="text-sm font-bold text-neutral-700">Menu belum tersedia</p>
-                  <p className="text-xs text-neutral-400 mt-1">Coba lagi beberapa saat</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {displayedMenus.map((item, idx) => {
-                    const itemCartQty = cartItems
-                      .filter((c) => c.menuId === item.id)
-                      .reduce((sum, curr) => sum + curr.quantity, 0);
-
-                    return (
-                      <MenuCard
-                        key={item.id}
-                        item={item}
-                        index={idx}
-                        cartQuantity={itemCartQty}
-                        onSelect={(m) => setSelectedMenuItem(m)}
-                        onQuickAdd={(m) => {
-                          handleAddToCart({
-                            id: `${m.id}-default`,
-                            menuId: m.id,
-                            name: m.name,
-                            price: m.price,
-                            unit_info: m.unit_info,
-                            image_url: m.image_url,
-                            quantity: 1,
-                            itemTotal: m.price
-                          });
-                        }}
-                        onUpdateQuantity={(delta) => {
-                          const existing = cartItems.find((c) => c.menuId === item.id);
-                          if (existing) {
-                            const newQty = existing.quantity + delta;
-                            if (newQty <= 0) {
-                              handleRemoveItem(existing.id);
-                            } else {
-                              handleUpdateQuantity(existing.id, newQty);
-                            }
-                          }
-                        }}
-                      />
-                    );
-                  })}
+              {/* Pre-Order mode active notification */}
+              {!storeSettings.is_open && isPreOrderMode && (
+                <div className="mx-4 mt-3 mb-1 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-2 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📦</span>
+                    <div>
+                      <p className="text-[11px] font-black text-amber-800">Mode Pre-Order Aktif</p>
+                      <p className="text-[10px] text-amber-600 font-medium">Pesananmu akan diproses besok</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setIsPreOrderMode(false); setCartItems([]); }}
+                    className="text-[10px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer shrink-0"
+                  >
+                    Batal
+                  </button>
                 </div>
               )}
-            </div>
 
-            {/* Footer */}
-            <div className="mt-4 px-5 py-6 text-center text-neutral-400 text-[11px] space-y-2 border-t border-neutral-100 bg-white">
-              <div className="flex items-center justify-center gap-2">
-                <div className="relative w-5 h-5 rounded-full overflow-hidden border border-red-500">
-                  <Image src="/logo.jpg" alt="Logo" fill sizes="20px" className="object-cover" />
+              {/* Menu count label (only shown when store is open OR in pre-order mode) */}
+              {(storeSettings.is_open || isPreOrderMode) && (
+                <div className="px-4 pt-3 pb-1">
+                  <p className="text-[11px] text-neutral-400 font-medium">
+                    {isLoadingMenus ? "Memuat menu..." : `${displayedMenus.length} menu tersedia`}
+                  </p>
                 </div>
-                <span className="font-bold text-neutral-800">Cireng Anu - Pesan Makanan Online</span>
-              </div>
-              <p className="max-w-xs mx-auto text-[10px] text-neutral-400 leading-relaxed">
-                Camilan khas lezat &amp; gurih • Fresh &amp; hangat langsung diantar ke lokasimu.
-              </p>
-              <div className="pt-2 flex items-center justify-center gap-4 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setCurrentScreen("welcome")}
-                  className="text-neutral-500 hover:text-neutral-800 font-bold transition-colors cursor-pointer"
-                >
-                  Welcome Screen
-                </button>
-                <span>•</span>
-                <Link
-                  href="/admin"
-                  className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-700 font-medium transition-colors"
-                >
-                  <Lock className="w-3 h-3 text-neutral-400" />
-                  <span>Portal Admin</span>
-                </Link>
+              )}
+
+              {/* Menu Grid */}
+              {(storeSettings.is_open || isPreOrderMode) && (
+                <div className="px-4 pb-4">
+                  {isLoadingMenus ? (
+                    <MenuGridSkeleton count={6} />
+                  ) : displayedMenus.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-10 text-center border border-neutral-200/80 my-2 shadow-xs">
+                      <p className="text-sm font-bold text-neutral-700">Menu belum tersedia</p>
+                      <p className="text-xs text-neutral-400 mt-1">Coba lagi beberapa saat</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {displayedMenus.map((item, idx) => {
+                        const itemCartQty = cartItems
+                          .filter((c) => c.menuId === item.id)
+                          .reduce((sum, curr) => sum + curr.quantity, 0);
+
+                        return (
+                          <MenuCard
+                            key={item.id}
+                            item={item}
+                            index={idx}
+                            cartQuantity={itemCartQty}
+                            onSelect={(m) => setSelectedMenuItem(m)}
+                            onQuickAdd={(m) => {
+                              handleAddToCart({
+                                id: `${m.id}-default`,
+                                menuId: m.id,
+                                name: m.name,
+                                price: m.price,
+                                unit_info: m.unit_info,
+                                image_url: m.image_url,
+                                quantity: 1,
+                                itemTotal: m.price
+                              });
+                            }}
+                            onUpdateQuantity={(delta) => {
+                              const existing = cartItems.find((c) => c.menuId === item.id);
+                              if (existing) {
+                                const newQty = existing.quantity + delta;
+                                if (newQty <= 0) {
+                                  handleRemoveItem(existing.id);
+                                } else {
+                                  handleUpdateQuantity(existing.id, newQty);
+                                }
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Placeholder skeleton when store is closed (behind overlay) */}
+              {!storeSettings.is_open && !isPreOrderMode && (
+                <div className="px-4 pb-4 mt-2">
+                  <MenuGridSkeleton count={6} />
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="mt-4 px-5 py-6 text-center text-neutral-400 text-[11px] space-y-2 border-t border-neutral-100 bg-white">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="relative w-5 h-5 rounded-full overflow-hidden border border-red-500">
+                    <Image src="/logo.jpg" alt="Logo" fill sizes="20px" className="object-cover" />
+                  </div>
+                  <span className="font-bold text-neutral-800">Cireng Anu - Pesan Makanan Online</span>
+                </div>
+                <p className="max-w-xs mx-auto text-[10px] text-neutral-400 leading-relaxed">
+                  Camilan khas lezat &amp; gurih • Fresh &amp; hangat langsung diantar ke lokasimu.
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-4 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentScreen("welcome")}
+                    className="text-neutral-500 hover:text-neutral-800 font-bold transition-colors cursor-pointer"
+                  >
+                    Welcome Screen
+                  </button>
+                  <span>•</span>
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-700 font-medium transition-colors"
+                  >
+                    <Lock className="w-3 h-3 text-neutral-400" />
+                    <span>Portal Admin</span>
+                  </Link>
+                </div>
               </div>
             </div>
+            {/* ── END background content ── */}
+
+            {/* Dark overlay — covers everything when store is closed */}
+            {!storeSettings.is_open && !isPreOrderMode && (
+              <div
+                className="absolute inset-0 z-10 bg-neutral-950/80 backdrop-blur-[2px] transition-opacity duration-500"
+                aria-hidden
+              />
+            )}
+
+            {/* Store Closed Banner — floats above the dark overlay */}
+            {!storeSettings.is_open && !isPreOrderMode && (
+              <div className="absolute inset-x-0 top-28 z-20 px-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <StoreClosedBanner
+                  openingHours={storeSettings.opening_hours}
+                  onPreOrder={() => setIsPreOrderMode(true)}
+                />
+              </div>
+            )}
 
           </div>
         )}
@@ -300,18 +358,24 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* CTA Button — Directs to /checkout */}
+                {/* CTA Button — Directs to /checkout (with pre-order flag if applicable) */}
                 <button
                   type="button"
-                  onClick={() => router.push("/checkout")}
-                  className="relative overflow-hidden shrink-0 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.96] text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-md shadow-red-600/30 hover:shadow-red-600/45 flex items-center gap-1.5 transition-all cursor-pointer group"
+                  onClick={() => router.push(isPreOrderMode ? "/checkout?preorder=1" : "/checkout")}
+                  className={`relative overflow-hidden shrink-0 active:scale-[0.96] text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer group ${
+                    isPreOrderMode
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30"
+                      : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-600/30 hover:shadow-red-600/45"
+                  }`}
                 >
                   {/* Subtle shimmer beam on CTA */}
                   <div className="absolute inset-0 pointer-events-none overflow-hidden">
                     <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-shimmer" />
                   </div>
 
-                  <span className="relative z-10 font-black tracking-wide">Buat Pesanan</span>
+                  <span className="relative z-10 font-black tracking-wide">
+                    {isPreOrderMode ? "📦 Pesan PO" : "Buat Pesanan"}
+                  </span>
                   <ChevronRight className="w-4 h-4 relative z-10 group-hover:translate-x-0.5 transition-transform duration-200" />
                 </button>
               </div>

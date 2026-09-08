@@ -12,8 +12,30 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const LOCAL_STORAGE_MENUS_KEY = "anu_cireng_menus_v2";
 const LOCAL_STORAGE_ORDERS_KEY = "anu_cireng_orders_v1";
+const LOCAL_STORAGE_DELETED_ORDERS_KEY = "anu_cireng_deleted_order_ids_v1";
 const LOCAL_STORAGE_SETTINGS_KEY = "anu_cireng_settings_v1";
 const LOCAL_STORAGE_STOCKS_KEY = "anu_cireng_stocks_v2";
+
+// Helper: Get local deleted order IDs (tombstone)
+function getLocalDeletedOrderIds(): Set<string> {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_DELETED_ORDERS_KEY);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+  }
+  return new Set();
+}
+
+function addLocalDeletedOrderId(id: string) {
+  if (typeof window !== "undefined") {
+    try {
+      const set = getLocalDeletedOrderIds();
+      set.add(id);
+      localStorage.setItem(LOCAL_STORAGE_DELETED_ORDERS_KEY, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+}
 
 // Helper: Get local stock overrides
 function getLocalStockMap(): Record<string, number | null> {
@@ -322,25 +344,45 @@ export async function updatePaymentStatus(
 }
 
 export async function getOrders(): Promise<OrderRecord[]> {
+  const deletedSet = getLocalDeletedOrderIds();
+
   try {
     const { data, error } = await supabase
       .from("orders")
       .select("*")
+      .neq("status", "Dihapus")
+      .neq("status", "Deleted")
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem(LOCAL_STORAGE_ORDERS_KEY);
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const list: OrderRecord[] = JSON.parse(stored);
+          return list.filter((o) => o.status !== "Dihapus" && (o.status as string) !== "Deleted" && !deletedSet.has(o.id));
+        }
       }
       return [];
     }
 
-    return data;
+    // Filter out any orders marked as deleted in DB or tracked locally in tombstone
+    const cleanList = data.filter(
+      (o: any) => o.status !== "Dihapus" && (o.status as string) !== "Deleted" && !deletedSet.has(o.id)
+    );
+
+    // Sync clean list back to local storage
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LOCAL_STORAGE_ORDERS_KEY, JSON.stringify(cleanList));
+    }
+
+    return cleanList;
   } catch {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem(LOCAL_STORAGE_ORDERS_KEY);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const list: OrderRecord[] = JSON.parse(stored);
+        return list.filter((o) => o.status !== "Dihapus" && (o.status as string) !== "Deleted" && !deletedSet.has(o.id));
+      }
     }
     return [];
   }
@@ -364,6 +406,126 @@ export async function updateOrderStatus(orderId: string, status: OrderRecord["st
   } catch {
     return false;
   }
+}
+
+export async function deleteOrder(orderId: string): Promise<boolean> {
+  try {
+    // 1. Mark in tombstone set so it is never revived locally
+    addLocalDeletedOrderId(orderId);
+
+    // 2. Remove immediately from local storage cache
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(LOCAL_STORAGE_ORDERS_KEY);
+      if (stored) {
+        const list: OrderRecord[] = JSON.parse(stored);
+        const filtered = list.filter((o) => o.id !== orderId);
+        localStorage.setItem(LOCAL_STORAGE_ORDERS_KEY, JSON.stringify(filtered));
+      }
+    }
+
+    // 3. Update status in Supabase to 'Dihapus' (guaranteed to succeed with UPDATE RLS policy)
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({ status: "Dihapus" })
+      .eq("id", orderId);
+
+    if (updateError) {
+      console.warn("Supabase mark order deleted warning:", updateError);
+    }
+
+    // 4. Also perform hard delete in Supabase (in case DELETE RLS policy is enabled)
+    const { error: deleteError } = await supabase.from("orders").delete().eq("id", orderId);
+    if (deleteError) {
+      console.warn("Supabase hard delete order warning:", deleteError);
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Failed to delete order:", err);
+    return false;
+  }
+}
+
+export async function uploadMenuImage(file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const fileName = `menu_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+  // 1. Try Supabase Storage 'menu-images' bucket
+  try {
+    const { data, error } = await supabase.storage
+      .from("menu-images")
+      .upload(fileName, file, { upsert: true });
+
+    if (!error && data) {
+      const { data: publicUrlData } = supabase.storage
+        .from("menu-images")
+        .getPublicUrl(fileName);
+      if (publicUrlData?.publicUrl) {
+        return publicUrlData.publicUrl;
+      }
+    }
+  } catch (e) {
+    console.warn("Storage upload to menu-images failed, trying fallback bucket:", e);
+  }
+
+  // 2. Try 'payment-proofs' bucket as fallback
+  try {
+    const { data, error } = await supabase.storage
+      .from("payment-proofs")
+      .upload(`menus/${fileName}`, file, { upsert: true });
+
+    if (!error && data) {
+      const { data: publicUrlData } = supabase.storage
+        .from("payment-proofs")
+        .getPublicUrl(`menus/${fileName}`);
+      if (publicUrlData?.publicUrl) {
+        return publicUrlData.publicUrl;
+      }
+    }
+  } catch (e) {
+    console.warn("Storage upload to fallback bucket failed:", e);
+  }
+
+  // 3. Fallback: Compress and read as base64 Data URL
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (typeof window !== "undefined" && typeof document !== "undefined") {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 800;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.85));
+            return;
+          }
+          resolve(result);
+        };
+        img.onerror = () => resolve(result);
+        img.src = result;
+      } else {
+        resolve(result);
+      }
+    };
+    reader.onerror = () => resolve("/logo.jpg");
+    reader.readAsDataURL(file);
+  });
 }
 
 // Store Settings

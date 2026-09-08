@@ -12,7 +12,6 @@ import {
   User,
   Phone,
   CreditCard,
-  Tag,
   CheckCircle2,
   Sparkles,
   Clock,
@@ -32,7 +31,7 @@ import confetti from "canvas-confetti";
 import DesktopPhoneFrame from "@/components/DesktopPhoneFrame";
 import { CartItem, OrderCustomerInfo, OrderRecord, StoreSettings } from "@/lib/types";
 import { formatRupiah, buildWhatsAppMessage, createWhatsAppUrl, WHATSAPP_NUMBER } from "@/lib/whatsapp";
-import { PROMO_CODES, DEFAULT_STORE_SETTINGS } from "@/lib/initialData";
+import { DEFAULT_STORE_SETTINGS } from "@/lib/initialData";
 import { createOrder, getStoreSettings, uploadPaymentProof, updateOrderPaymentProof } from "@/lib/supabase";
 
 export default function CheckoutPage() {
@@ -50,10 +49,8 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [generalNotes, setGeneralNotes] = useState("");
 
-  // Promo Code State
-  const [promoCodeInput, setPromoCodeInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; desc: string } | null>(null);
-  const [promoError, setPromoError] = useState("");
+  // Pre-order mode: from ?preorder=1 query param
+  const [isPreOrder, setIsPreOrder] = useState(false);
 
   // Submission & Post-Order QRIS Payment State
   const [formErrors, setFormErrors] = useState<{ [k: string]: string }>({});
@@ -77,6 +74,12 @@ export default function CheckoutPage() {
       localStorage.setItem("cireng_anu_has_onboarded", "true");
     } catch {}
 
+    // Detect pre-order mode from URL
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("preorder") === "1") {
+      setIsPreOrder(true);
+    }
+
     getStoreSettings().then((res) => {
       if (res) setStoreSettings(res);
     });
@@ -87,38 +90,7 @@ export default function CheckoutPage() {
   // Calculations
   const subtotal = items.reduce((acc, curr) => acc + curr.itemTotal, 0);
   const deliveryFee = orderType === "delivery" && subtotal > 0 ? storeSettings.delivery_fee_default || 5000 : 0;
-  const discountAmount = appliedPromo ? appliedPromo.discount : 0;
-  const finalTotal = Math.max(0, subtotal - discountAmount + deliveryFee);
-
-  const handleApplyPromo = () => {
-    setPromoError("");
-    const code = promoCodeInput.trim().toUpperCase();
-    if (!code) return;
-
-    const promo = PROMO_CODES[code];
-    if (!promo) {
-      setPromoError("Kode promo tidak valid");
-      return;
-    }
-
-    if (subtotal < promo.minOrder) {
-      setPromoError(`Minimal order ${formatRupiah(promo.minOrder)}`);
-      return;
-    }
-
-    let calculatedDiscount = 0;
-    if (promo.type === "percent") {
-      calculatedDiscount = Math.round((subtotal * promo.value) / 100);
-    } else {
-      calculatedDiscount = promo.value;
-    }
-
-    setAppliedPromo({
-      code,
-      discount: calculatedDiscount,
-      desc: promo.desc
-    });
-  };
+  const finalTotal = subtotal + deliveryFee;
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,12 +120,16 @@ export default function CheckoutPage() {
     try {
       const orderId = `ANU-${Date.now().toString().slice(-6)}`;
 
+      // Build notes with PO label if pre-order
+      const poPrefix = isPreOrder ? "[📦 PRE-ORDER - BESOK] " : "";
+      const finalNotes = poPrefix + (generalNotes.trim() || "");
+
       const customerInfo: OrderCustomerInfo = {
         name: customerName.trim(),
         phone: customerPhone.trim(),
         orderType: orderType,
         address: orderType === "delivery" ? address.trim() : undefined,
-        notes: generalNotes.trim() || undefined,
+        notes: finalNotes.trim() || undefined,
         paymentMethod: "qris"
       };
 
@@ -166,10 +142,9 @@ export default function CheckoutPage() {
         payment_method: "qris",
         items: items,
         subtotal: subtotal,
-        discount: discountAmount,
+        discount: 0,
         delivery_fee: deliveryFee,
         total_amount: finalTotal,
-        promo_code: appliedPromo?.code,
         customer_notes: customerInfo.notes,
         status: "Baru",
         payment_status: "Menunggu",
@@ -311,6 +286,19 @@ export default function CheckoutPage() {
           {/* IF ORDER IS PLACED: SHOW QRIS PAYMENT & PROOF UPLOAD SCREEN */}
           {placedOrder ? (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              
+              {/* Pre-Order confirmation notice if applicable */}
+              {isPreOrder && (
+                <div className="bg-amber-50 border border-amber-300 rounded-2xl px-4 py-3 flex items-start gap-3">
+                  <span className="text-xl shrink-0">📦</span>
+                  <div>
+                    <p className="text-xs font-black text-amber-900">Pesanan Pre-Order Berhasil!</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                      Pesananmu akan diproses besok. Admin akan mengkonfirmasi jadwal via WhatsApp.
+                    </p>
+                  </div>
+                </div>
+              )}
               
               {/* Card 1: Success Banner & Order Total */}
               <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-5 rounded-3xl shadow-md text-center space-y-3 relative overflow-hidden">
@@ -533,46 +521,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Card 2: Promo Code */}
-              <div className="bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-xs space-y-2">
-                <h3 className="font-black text-xs text-neutral-900 flex items-center gap-1.5 pb-1">
-                  <Tag className="w-4 h-4 text-amber-500" />
-                  <span>Kode Promo / Voucher</span>
-                </h3>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={promoCodeInput}
-                    onChange={(e) => setPromoCodeInput(e.target.value)}
-                    placeholder="Masukkan kode (Cth: CIRENGPAHAM)"
-                    className="flex-1 px-3.5 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200 text-xs font-bold uppercase placeholder:normal-case placeholder:font-normal focus:border-red-500 focus:bg-white focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyPromo}
-                    className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition-colors shrink-0 cursor-pointer"
-                  >
-                    Gunakan
-                  </button>
-                </div>
-
-                {promoError && (
-                  <p className="text-[11px] text-red-500 font-bold flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{promoError}</span>
-                  </p>
-                )}
-
-                {appliedPromo && (
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-800 font-bold">
-                    <span>Diskon {appliedPromo.code} ({appliedPromo.desc})</span>
-                    <span>-{formatRupiah(appliedPromo.discount)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Card 3: Customer Info & Order Type */}
+              {/* Card 2: Customer Info & Order Type */}
               <div className="bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-xs space-y-3">
                 <h3 className="font-black text-xs text-neutral-900 flex items-center gap-1.5 pb-2 border-b border-neutral-100">
                   <User className="w-4 h-4 text-red-600" />
@@ -682,9 +631,22 @@ export default function CheckoutPage() {
                     className="w-full px-3.5 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-red-500 focus:bg-white focus:outline-none font-medium"
                   />
                 </div>
+
+                {/* Pre-Order notice badge in form */}
+                {isPreOrder && (
+                  <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl px-3.5 py-3">
+                    <span className="text-lg shrink-0 leading-none">📦</span>
+                    <div>
+                      <p className="text-xs font-black text-amber-900">Pesanan ini adalah Pre-Order</p>
+                      <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                        Toko sedang tutup. Pesananmu akan <strong>diproses besok</strong> dan admin akan menghubungimu via WhatsApp untuk konfirmasi waktu.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Card 4: Payment Method Info Banner */}
+              {/* Card 3: Payment Method Info Banner */}
               <div className="bg-red-50/70 p-4 rounded-3xl border border-red-200/80 shadow-xs space-y-2">
                 <div className="flex items-center gap-2">
                   <QrCode className="w-5 h-5 text-red-600 shrink-0" />
@@ -697,19 +659,12 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Card 5: Payment Breakdown & Total */}
+              {/* Card 4: Payment Breakdown & Total */}
               <div className="bg-white p-5 rounded-3xl border border-neutral-200/80 shadow-xs space-y-2">
                 <div className="flex justify-between text-neutral-500 text-xs">
                   <span>Subtotal Menu</span>
                   <span className="font-bold text-neutral-900">{formatRupiah(subtotal)}</span>
                 </div>
-
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-600 text-xs">
-                    <span>Diskon Promo</span>
-                    <span className="font-bold">-{formatRupiah(discountAmount)}</span>
-                  </div>
-                )}
 
                 {orderType === "delivery" && (
                   <div className="flex justify-between text-neutral-500 text-xs">
@@ -731,13 +686,25 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.98] text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer disabled:opacity-60"
+                  className={`w-full py-4 active:scale-[0.98] text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-60 ${
+                    isPreOrder
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30"
+                      : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-600/30"
+                  }`}
                 >
                   <QrCode className="w-5 h-5" />
-                  <span>{isSubmitting ? "Memproses Pesanan..." : "Buat Pesanan & Bayar QRIS"}</span>
+                  <span>
+                    {isSubmitting
+                      ? "Memproses Pesanan..."
+                      : isPreOrder
+                      ? "📦 Konfirmasi Pre-Order & Bayar QRIS"
+                      : "Buat Pesanan & Bayar QRIS"}
+                  </span>
                 </button>
                 <p className="text-[10px] text-neutral-400 text-center mt-2">
-                  Pesanan akan tersimpan dan QRIS akan ditampilkan untuk pembayaran.
+                  {isPreOrder
+                    ? "Pesananmu akan diproses besok — admin akan mengkonfirmasi via WhatsApp."
+                    : "Pesanan akan tersimpan dan QRIS akan ditampilkan untuk pembayaran."}
                 </p>
               </div>
 
